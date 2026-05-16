@@ -11,6 +11,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+    <!-- Guard: prevent widget.js focus handler crash on Radix synthetic events -->
+    <script>
+      (function() {
+        var _origAddEvt = EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener = function(type, listener, opts) {
+          if ((type === 'focusin' || type === 'focus') && typeof listener === 'function') {
+            var _orig = listener;
+            listener = function(e) {
+              try { _orig.call(this, e); } catch(err) {
+                if (err && err.message && err.message.indexOf('tagName') !== -1) return;
+                throw err;
+              }
+            };
+          }
+          return _origAddEvt.call(this, type, listener, opts);
+        };
+      })();
+    </script>
       <!-- CRITICAL: DO NOT REMOVE/MODIFY THIS COMMENT OR THE SCRIPT BELOW -->
     <script src="https://blink.new/widget.js?projectId=cursorai-code-studio-lqc5wfwd" type="module"></script>
   </head>
