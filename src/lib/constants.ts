@@ -1,4 +1,4 @@
-import { Rocket, Palette, Briefcase, PenTool, Bot, Video, Ticket } from 'lucide-react';
+import { Rocket, Palette, Briefcase, PenTool, Bot, Video, Ticket, Infinity, MessageSquareText } from 'lucide-react';
 
 export const SUGGESTED_PROMPTS = [
   {
@@ -39,12 +39,12 @@ export const SUGGESTED_PROMPTS = [
 ];
 
 export const AI_MODELS = [
-  { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
-  { id: 'claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Anthropic' },
-  { id: 'gemini-3-flash', name: 'Gemini 3 Flash', provider: 'Google' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash', provider: 'Google' },
+  { id: 'anthropic/claude-sonnet-4.5', name: 'Claude 4.5 Sonnet', provider: 'Anthropic' },
+  { id: 'openai/gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
 ];
 
 export const AGENT_MODES = [
-  { id: 'agent', name: 'Agent', icon: Bot }, // Using Bot instead of Infinity for consistency or just keep it
-  { id: 'ask', name: 'Ask', icon: Bot },
+  { id: 'agent', name: 'Agent', icon: Infinity },
+  { id: 'ask', name: 'Ask', icon: MessageSquareText },
 ];
