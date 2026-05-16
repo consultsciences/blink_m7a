@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Code2, Eye, GitBranch, Sparkles, Terminal, ArrowRight, Check, Star } from 'lucide-react';
+import { Zap, Code2, Eye, GitBranch, Sparkles, Terminal, ArrowRight, Check } from 'lucide-react';
 import { blink } from '../lib/blink';
 
 const FEATURES = [
@@ -66,6 +66,7 @@ const PLANS = [
 
 const LOGOS = ['Vercel', 'Supabase', 'Stripe', 'Cloudflare', 'PlanetScale', 'Railway'];
 
+
 export function LandingPage() {
   const handleLogin = () => blink.auth.login();
 
@@ -75,8 +76,8 @@ export function LandingPage() {
       <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/cursor_logo.png" alt="Logo" className="w-7 h-7" />
-            <span className="font-bold text-[17px] tracking-tight">Cursor Studio</span>
+            <img src="/m7a_logo.png" alt="m7a" className="w-8 h-8 object-contain" />
+            <span className="font-bold text-[17px] tracking-tight">m7a</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
@@ -109,11 +110,11 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white/70 mb-8">
             <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>Now powered by Gemini 3 Flash · Claude 4.5 · GPT-5.2</span>
+            <span>Powered by Gemini 3 Flash · Claude 4.5 · GPT-5.2</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-[80px] font-bold tracking-tight leading-[1.05] mb-6 bg-gradient-to-b from-white via-white to-white/50 bg-clip-text text-transparent">
-            Build software<br />at the speed of thought.
+            Build software<br /><span className="bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] bg-clip-text text-transparent">at the speed of thought.</span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-lg text-white/50 mb-12 leading-relaxed">
@@ -124,7 +125,7 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={handleLogin}
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white hover:bg-white/92 text-black font-semibold text-base transition-all shadow-[0_0_50px_-10px_rgba(255,255,255,0.4)] hover:scale-[1.03] active:scale-[0.98]"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] hover:opacity-90 text-white font-semibold text-base transition-all shadow-[0_0_40px_-8px_rgba(64,200,224,0.4)] hover:scale-[1.03] active:scale-[0.98]"
             >
               Start Building — It's Free
             </button>
@@ -153,13 +154,13 @@ export function LandingPage() {
       {/* ── App Screenshot ─────────────────────────────────────────── */}
       <section id="demo" className="relative max-w-6xl mx-auto px-6 pb-20">
         <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)]">
-          {/* Fake editor chrome */}
+          {/* Editor chrome */}
           <div className="h-10 bg-[#0d0d0d] border-b border-white/5 flex items-center gap-2 px-4">
             <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
             <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
             <div className="w-3 h-3 rounded-full bg-[#28c840]" />
             <div className="flex-1 mx-4 h-5 bg-white/5 rounded text-[11px] text-white/30 flex items-center px-3">
-              cursor-studio.app
+              m7a.app
             </div>
           </div>
           <div className="grid grid-cols-[280px_1fr] h-[440px]">
@@ -207,7 +208,7 @@ export function LandingPage() {
       {/* ── Features ───────────────────────────────────────────────── */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Everything you need to ship</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Everything you need to <span className="bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] bg-clip-text text-transparent">ship</span></h2>
           <p className="text-white/50 max-w-xl mx-auto">A complete AI development environment — from idea to deployed app — without leaving the browser.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -229,7 +230,7 @@ export function LandingPage() {
       {/* ── Pricing ────────────────────────────────────────────────── */}
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Simple, transparent pricing</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Simple, transparent <span className="bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] bg-clip-text text-transparent">pricing</span></h2>
           <p className="text-white/50">Start free, scale when you're ready.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -238,12 +239,12 @@ export function LandingPage() {
               key={plan.name}
               className={`relative p-6 rounded-2xl border flex flex-col transition-all duration-300 ${
                 plan.highlight
-                  ? 'bg-white/[0.06] border-white/20 shadow-[0_0_60px_-20px_rgba(255,255,255,0.15)]'
+                  ? 'bg-[#40c8e0]/[0.06] border-[#40c8e0]/30 shadow-[0_0_60px_-20px_rgba(64,200,224,0.2)]'
                   : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
               }`}
             >
               {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-white text-black text-[11px] font-bold rounded-full uppercase tracking-wider">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] text-white text-[11px] font-bold rounded-full uppercase tracking-wider">
                   Most Popular
                 </div>
               )}
@@ -267,7 +268,7 @@ export function LandingPage() {
                 onClick={handleLogin}
                 className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
                   plan.highlight
-                    ? 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'
+                    ? 'bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] text-white hover:opacity-90 active:scale-[0.98]'
                     : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
                 }`}
               >
@@ -281,12 +282,12 @@ export function LandingPage() {
       {/* ── CTA ────────────────────────────────────────────────────── */}
       <section className="max-w-3xl mx-auto px-6 py-24 text-center">
         <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent">
-          Ready to build at the speed of thought?
+          Ready to build smarter,<br/>faster with <span className="bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] bg-clip-text text-transparent">m7a</span>?
         </h2>
         <p className="text-white/40 mb-10 text-lg">No setup. No credit card. Just describe your idea.</p>
         <button
           onClick={handleLogin}
-          className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-white text-black font-bold text-base hover:bg-white/92 transition-all shadow-[0_0_60px_-10px_rgba(255,255,255,0.3)] hover:scale-[1.03] active:scale-[0.98]"
+          className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] text-white font-bold text-base hover:opacity-90 transition-all shadow-[0_0_50px_-10px_rgba(64,200,224,0.4)] hover:scale-[1.03] active:scale-[0.98]"
         >
           Start Building Free <ArrowRight size={18} />
         </button>
@@ -296,10 +297,10 @@ export function LandingPage() {
       <footer className="border-t border-white/5 py-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/30">
           <div className="flex items-center gap-2">
-            <img src="/cursor_logo.png" alt="Logo" className="w-5 h-5 opacity-50" />
-            <span className="font-semibold">Cursor Studio</span>
+            <img src="/m7a_logo.png" alt="m7a" className="w-6 h-6 object-contain opacity-70" />
+            <span className="font-semibold">m7a</span>
           </div>
-          <p>© {new Date().getFullYear()} Cursor Studio. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} m7a. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-white/60 transition-colors">Privacy</a>
             <a href="#" className="hover:text-white/60 transition-colors">Terms</a>

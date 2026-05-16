@@ -17,7 +17,7 @@ export function UserMenu() {
   }, []);
 
   const initials = user?.displayName
-    ? user.displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    ? (user.displayName as string).split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() ?? 'U';
 
   return (
@@ -32,7 +32,7 @@ export function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 bg-[#111] border-border/50 text-sm">
         <div className="px-3 py-2.5 border-b border-border/30">
-          <p className="text-xs font-medium text-foreground truncate">{user?.displayName || 'My Account'}</p>
+          <p className="text-xs font-medium text-foreground truncate">{(user as any)?.displayName || 'My Account'}</p>
           <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user?.email}</p>
         </div>
         <DropdownMenuItem className="gap-2 cursor-pointer focus:bg-white/5 mt-1">

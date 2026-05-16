@@ -181,14 +181,14 @@ export default function App() {
         <header className="h-10 border-b border-border flex items-center justify-between px-3 bg-[#0a0a0a] shrink-0 select-none">
           {/* Left — logo */}
           <div className="flex items-center gap-2 px-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleHome}>
-            <img src="/cursor_logo.png" alt="Logo" className="w-5 h-5" />
-            <span className="text-[11px] font-semibold text-muted-foreground">Cursor Studio</span>
+            <img src="/m7a_logo.png" alt="m7a" className="w-5 h-5 object-contain" />
+            <span className="text-[11px] font-semibold text-muted-foreground">m7a</span>
           </div>
 
           {/* Center — project name */}
           <div className="absolute left-1/2 -translate-x-1/2">
             <span className="text-[11px] font-medium text-muted-foreground/60 truncate max-w-[200px]">
-              {initialPrompt ? initialPrompt.slice(0, 30) + (initialPrompt.length > 30 ? '…' : '') : 'New Project'}
+              {initialPrompt ? initialPrompt.slice(0, 32) + (initialPrompt.length > 32 ? '…' : '') : 'New Project'}
             </span>
           </div>
 

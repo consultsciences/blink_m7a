@@ -122,7 +122,7 @@ export function ChatPanel({ sandbox, isEmbedded = false, initialPrompt = null, o
     return (
       <div className="h-full flex flex-col items-center justify-center bg-background px-6 gap-10">
         <div className="flex flex-col items-center gap-4 text-center">
-          <img src="/cursor_logo.png" alt="Logo" className="w-12 h-12 opacity-20" />
+          <img src="/m7a_logo.png" alt="m7a" className="w-12 h-12 object-contain opacity-40" />
           <p className="text-sm text-muted-foreground/60 max-w-xs">
             Describe what you want to build. The AI agent will scaffold, code, and preview it live.
           </p>

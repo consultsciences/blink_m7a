@@ -28,7 +28,19 @@ export function PromptScreen({ onStart }: PromptScreenProps) {
   const ModeIcon = selectedMode.icon;
 
   return (
-    <div className="h-screen w-screen bg-[#0d0d0d] flex flex-col items-center justify-center relative font-sans text-foreground">
+    <div className="h-screen w-screen bg-[#0d0d0d] flex flex-col items-center justify-center relative font-sans text-foreground overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
+        <div className="w-[700px] h-[400px] bg-[#40c8e0]/[0.05] rounded-full blur-[100px]" />
+      </div>
+
+      {/* Logo */}
+      <div className="flex flex-col items-center gap-3 mb-4">
+        <img src="/m7a_logo.png" alt="m7a" className="w-14 h-14 object-contain" />
+        <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-[#40c8e0] to-[#1a5fa8] bg-clip-text text-transparent">m7a</span>
+        <p className="text-xs text-muted-foreground/60">Build software at the speed of thought</p>
+      </div>
+
       <div className="w-full max-w-3xl px-6 space-y-12">
         {/* Input Area */}
         <form onSubmit={handleSubmit} className="relative group">
