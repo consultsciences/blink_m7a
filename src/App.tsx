@@ -2,18 +2,17 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useBlinkAuth } from '@blinkdotnew/react';
 import { createSandbox, connectSandbox } from './lib/sandbox';
 import { blink } from './lib/blink';
-import { LandingPage } from './components/LandingPage';
 import { PromptScreen } from './components/PromptScreen';
 import { EditorLayout } from './components/EditorLayout';
 import { HistoryModal, Project } from './components/HistoryModal';
 import { UserMenu } from './components/UserMenu';
-import { History as HistoryIcon, Plus, Settings } from 'lucide-react';
+import { History as HistoryIcon, Plus } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { cn } from './lib/utils';
 import gsap from 'gsap';
 
 export default function App() {
-  const { isAuthenticated, isLoading: authLoading } = useBlinkAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useBlinkAuth();
   const [sandbox, setSandbox] = useState<any>(null);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [sandboxLoading, setSandboxLoading] = useState(false);
@@ -67,10 +66,10 @@ export default function App() {
     const save = async () => {
       if (!shouldCreateProject || !sandbox?.id || !initialPrompt || !isAuthenticated) return;
       try {
-        const user = await blink.auth.me();
-        if (user) {
+        const currentUser = await blink.auth.me();
+        if (currentUser) {
           await blink.db.projects.create({
-            userId: user.id,
+            userId: currentUser.id,
             name: initialPrompt.slice(0, 40) + (initialPrompt.length > 40 ? '…' : ''),
             prompt: initialPrompt,
             sandboxId: sandbox.id,
@@ -136,40 +135,46 @@ export default function App() {
     window.location.reload();
   };
 
-  // ── Loading / auth states ──────────────────────────────────────────────────
+  const handleLogin = () => blink.auth.login();
+
+  // User info for avatar
+  const userInitial = (user as any)?.displayName?.[0]?.toUpperCase() || (user as any)?.email?.[0]?.toUpperCase() || 'U';
+  const userAvatar = (user as any)?.avatarUrl || null;
+
+  // ── Auth loading ───────────────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted-foreground border-t-transparent" />
+      <div className="h-screen w-screen flex items-center justify-center bg-[#111111]">
+        <div className="animate-spin rounded-full h-7 w-7 border-2 border-[#444] border-t-white" />
       </div>
     );
   }
 
-  if (!isAuthenticated) return <LandingPage />;
-
   return (
-    <div className="h-screen w-screen bg-background relative overflow-hidden">
-      <HistoryModal
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        onSelectProject={handleSelectProject}
-        currentSandboxId={sandbox?.id}
-      />
+    <div className="h-screen w-screen bg-[#111111] relative overflow-hidden">
+      {isAuthenticated && (
+        <HistoryModal
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          onSelectProject={handleSelectProject}
+          currentSandboxId={sandbox?.id}
+        />
+      )}
 
       {/* ── Prompt Screen ─────────────────────────────────────────────── */}
       <div
         ref={promptScreenRef}
-        className={cn('absolute inset-0 z-50 bg-background', hasPromptStarted && 'pointer-events-none')}
+        className={cn('absolute inset-0 z-50 bg-[#111111]', hasPromptStarted && 'pointer-events-none')}
         style={{ display: showEditor ? 'none' : 'block' }}
       >
-        <PromptScreen onStart={handleStartPrompt} />
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 h-8" onClick={() => setShowHistory(true)}>
-            <HistoryIcon size={14} />
-            <span className="text-[12px]">History</span>
-          </Button>
-          <UserMenu />
-        </div>
+        <PromptScreen
+          onStart={handleStartPrompt}
+          onShowHistory={() => setShowHistory(true)}
+          isAuthenticated={isAuthenticated}
+          onLogin={handleLogin}
+          userAvatar={userAvatar}
+          userInitial={userInitial}
+        />
       </div>
 
       {/* ── Editor ────────────────────────────────────────────────────── */}
@@ -198,10 +203,12 @@ export default function App() {
               <Plus size={13} />
               <span className="text-[11px]">New</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-foreground hover:bg-transparent gap-1.5 px-2" onClick={() => setShowHistory(true)}>
-              <HistoryIcon size={13} />
-              <span className="text-[11px]">History</span>
-            </Button>
+            {isAuthenticated && (
+              <Button variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-foreground hover:bg-transparent gap-1.5 px-2" onClick={() => setShowHistory(true)}>
+                <HistoryIcon size={13} />
+                <span className="text-[11px]">History</span>
+              </Button>
+            )}
             <div className="w-px h-4 bg-border/50 mx-1" />
             <div className="px-1">
               <UserMenu />
