@@ -43,10 +43,16 @@ deploy.post('/vercel', async (c) => {
 
   // Check if Vercel project exists, create if not
   let vercelProjectId: string | null = null;
-  const existing = await blink.db.vercelDeployments.list({
-    where: { projectId, userId: auth.userId },
-    limit: 1,
-  });
+  const { data: rows, error } = await blink
+  .from('subscriptions')
+  .select('*')
+  .eq('stripeCustomerId', customerId)
+  .limit(1);
+
+if (error || !rows || rows.length === 0) {
+  console.warn(`No subscription record matched for ${customerId}`);
+  break;
+}
 
   if (existing.length > 0 && (existing[0] as any).vercelProjectId) {
     vercelProjectId = (existing[0] as any).vercelProjectId;
