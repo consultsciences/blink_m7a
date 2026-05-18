@@ -36,10 +36,16 @@ app.get('/api/me/subscription', async (c) => {
   const result = await blink.auth.verifyToken(authHeader);
   if (!result.valid) return c.json({ error: 'Unauthorized' }, 401);
 
-  const rows = await blink.db.subscriptions.list({
-    where: { userId: result.userId },
-    limit: 1,
-  });
+ const { data: rows, error } = await blink
+  .from('subscriptions')
+  .select('*')
+  .eq('stripeCustomerId', customerId)
+  .limit(1);
+
+if (error || !rows || rows.length === 0) {
+  console.warn(`No subscription record matched for ${customerId}`);
+  break;
+}
 
   if (rows.length === 0) {
     return c.json({
