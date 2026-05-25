@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { blink } from '../lib/blink';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
-import { Clock, Code, Box, ChevronRight, Terminal, Trash2, Search } from 'lucide-react';
+import { Clock, Code, Box, Terminal, Trash2, Search, Pencil, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Input } from './ui/input';
 
@@ -26,10 +26,20 @@ export function HistoryModal({ isOpen, onClose, onSelectProject, currentSandboxI
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) loadProjects();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (renaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renaming]);
 
   const loadProjects = async () => {
     setIsLoading(true);
@@ -54,11 +64,32 @@ export function HistoryModal({ isOpen, onClose, onSelectProject, currentSandboxI
     if (!confirm(`Delete "${project.name}"?`)) return;
     setDeleting(project.id);
     try {
-      await blink.db.table('projects').delete({ id: project.id });
+      await blink.db.table('projects').delete(project.id);
       setProjects(prev => prev.filter(p => p.id !== project.id));
     } catch { alert('Failed to delete project.'); }
     finally { setDeleting(null); }
   };
+
+  const startRename = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setRenaming(project.id);
+    setRenameValue(project.name || '');
+  };
+
+  const commitRename = async (project: Project) => {
+    const newName = renameValue.trim();
+    if (!newName || newName === project.name) {
+      setRenaming(null);
+      return;
+    }
+    try {
+      await blink.db.table('projects').update(project.id, { name: newName });
+      setProjects(prev => prev.map(p => p.id === project.id ? { ...p, name: newName } : p));
+    } catch { /* silently fail */ }
+    setRenaming(null);
+  };
+
+  const cancelRename = () => setRenaming(null);
 
   const filtered = projects.filter(p =>
     !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.prompt?.toLowerCase().includes(search.toLowerCase())
@@ -78,10 +109,9 @@ export function HistoryModal({ isOpen, onClose, onSelectProject, currentSandboxI
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Terminal size={16} /> Project History
           </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-1">Select a project to resume it. Sandboxes auto-pause and resume.</p>
+          <p className="text-xs text-muted-foreground mt-1">Select a project to resume it. Click the pencil icon to rename.</p>
         </DialogHeader>
 
-        {/* Search */}
         <div className="px-5 py-3 border-b border-[#2d2d2d] bg-[#0a0a0a]">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
@@ -114,7 +144,7 @@ export function HistoryModal({ isOpen, onClose, onSelectProject, currentSandboxI
                 {filtered.map((project) => (
                   <button
                     key={project.id}
-                    onClick={() => onSelectProject(project)}
+                    onClick={() => renaming !== project.id && onSelectProject(project)}
                     className={`w-full text-left group p-4 rounded-xl border transition-all duration-200 relative overflow-hidden ${
                       currentSandboxId === project.sandboxId
                         ? 'border-primary/40 bg-[#1a1a1a]'
@@ -126,20 +156,51 @@ export function HistoryModal({ isOpen, onClose, onSelectProject, currentSandboxI
                     )}
 
                     <div className="flex items-start justify-between gap-3 mb-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className={`p-1.5 rounded-md shrink-0 ${
                           currentSandboxId === project.sandboxId ? 'bg-primary/20 text-primary' : 'bg-[#252525] text-muted-foreground group-hover:text-foreground'
                         }`}>
                           <Code size={13} />
                         </div>
-                        <h3 className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">
-                          {project.name || 'Untitled Project'}
-                        </h3>
+
+                        {renaming === project.id ? (
+                          <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                            <Input
+                              ref={renameInputRef}
+                              value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') commitRename(project);
+                                if (e.key === 'Escape') cancelRename();
+                              }}
+                              className="h-6 text-xs bg-[#0a0a0a] border-primary/40 flex-1"
+                            />
+                            <button onClick={() => commitRename(project)} className="p-1 text-green-400 hover:text-green-300">
+                              <Check size={12} />
+                            </button>
+                            <button onClick={cancelRename} className="p-1 text-muted-foreground hover:text-foreground">
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <h3 className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                            {project.name || 'Untitled Project'}
+                          </h3>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {currentSandboxId === project.sandboxId && (
                           <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">Active</span>
+                        )}
+                        {renaming !== project.id && (
+                          <button
+                            onClick={e => startRename(e, project)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-white/5 transition-all"
+                            title="Rename project"
+                          >
+                            <Pencil size={11} />
+                          </button>
                         )}
                         <button
                           onClick={e => handleDelete(e, project)}

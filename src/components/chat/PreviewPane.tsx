@@ -1,7 +1,8 @@
-import React from 'react';
-import { Eye, RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Eye, RefreshCw, ExternalLink, Loader2, Monitor, Smartphone } from 'lucide-react';
 import { getPreviewUrl } from '../../lib/sandbox';
 import { BuildingScreen } from '../BuildingScreen';
+import { DeployButton } from '../DeployButton';
 
 interface PreviewPaneProps {
   sandboxId: string | null;
@@ -9,9 +10,24 @@ interface PreviewPaneProps {
   trustDelayPassed: boolean;
   previewKey: number;
   onRefresh: () => void;
+  projectId?: string;
+  projectFiles?: Record<string, string>;
 }
 
-export function PreviewPane({ sandboxId, isBuilding, trustDelayPassed, previewKey, onRefresh }: PreviewPaneProps) {
+type Viewport = 'desktop' | 'mobile';
+
+export function PreviewPane({
+  sandboxId,
+  isBuilding,
+  trustDelayPassed,
+  previewKey,
+  onRefresh,
+  projectId,
+  projectFiles,
+}: PreviewPaneProps) {
+  const [viewport, setViewport] = useState<Viewport>('desktop');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   const openInNewTab = () => {
     if (sandboxId) window.open(getPreviewUrl(sandboxId), '_blank');
   };
@@ -30,7 +46,20 @@ export function PreviewPane({ sandboxId, isBuilding, trustDelayPassed, previewKe
             </div>
           )}
         </div>
+
         <div className="flex items-center gap-1">
+          {/* Viewport toggle */}
+          <button
+            onClick={() => setViewport(v => v === 'desktop' ? 'mobile' : 'desktop')}
+            className="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            title={viewport === 'desktop' ? 'Switch to mobile view' : 'Switch to desktop view'}
+          >
+            {viewport === 'desktop'
+              ? <Smartphone className="w-3.5 h-3.5" />
+              : <Monitor className="w-3.5 h-3.5" />
+            }
+          </button>
+
           <button
             onClick={openInNewTab}
             disabled={!sandboxId}
@@ -39,30 +68,44 @@ export function PreviewPane({ sandboxId, isBuilding, trustDelayPassed, previewKe
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </button>
+
           <button
             onClick={onRefresh}
             className="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
-            title="Refresh"
+            title="Refresh preview"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
+
+          {/* Deploy button — only show when project exists */}
+          {projectId && (
+            <DeployButton projectId={projectId} files={projectFiles || {}} />
+          )}
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden relative flex items-center justify-center bg-[#161616]">
         {sandboxId && trustDelayPassed ? (
-          <>
+          <div
+            className="relative transition-all duration-300"
+            style={
+              viewport === 'mobile'
+                ? { width: 390, height: '100%', maxHeight: '100%', boxShadow: '0 0 0 1px rgba(255,255,255,0.08)' }
+                : { width: '100%', height: '100%' }
+            }
+          >
             <iframe
+              ref={iframeRef}
               key={previewKey}
               src={getPreviewUrl(sandboxId)}
               className="w-full h-full border-none"
               title="App Preview"
             />
             {isBuilding && <BuildingScreen />}
-          </>
+          </div>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground bg-[#161616]">
+          <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground w-full h-full">
             {!sandboxId ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin opacity-40" />
@@ -71,7 +114,8 @@ export function PreviewPane({ sandboxId, isBuilding, trustDelayPassed, previewKe
             ) : (
               <>
                 <Loader2 className="w-6 h-6 animate-spin opacity-40" />
-                <span className="text-xs">Loading preview…</span>
+                <span className="text-xs">Starting dev server…</span>
+                <span className="text-[10px] text-muted-foreground/40">This usually takes 5–15 seconds</span>
               </>
             )}
           </div>

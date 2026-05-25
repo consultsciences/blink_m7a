@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createClient } from '@blinkdotnew/sdk';
+import { getDB } from './lib/db';
+import { requireAuth } from './lib/auth';
 import projectsRouter from './routes/projects';
 import stripeRouter from './routes/stripe-webhook';
 import jobsRouter from './routes/jobs';
@@ -10,9 +11,19 @@ import templatesRouter from './routes/templates';
 
 const app = new Hono();
 
-// CORS — allow the m7a frontend
+// CORS — allow m7a frontend origins
 app.use('*', cors({
-  origin: ['https://cursorai-code-studio-lqc5wfwd.sites.blink.new', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin) => {
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
+    // Allow all *.blink.new and *.sites.blink.new origins
+    if (!origin) return null;
+    if (allowed.includes(origin)) return origin;
+    if (origin.endsWith('.blink.new') || origin.endsWith('.sites.blink.new')) return origin;
+    return null;
+  },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'stripe-signature'],
   exposeHeaders: ['Content-Length'],
@@ -22,32 +33,19 @@ app.use('*', cors({
 // Health
 app.get('/health', (c) => c.json({ ok: true, service: 'm7a-backend', ts: new Date().toISOString() }));
 
-// Subscription check helper — used by frontend
+// Subscription check helper
 app.get('/api/me/subscription', async (c) => {
-  const env = c.env as any;
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader) return c.json({ error: 'Unauthorized' }, 401);
+  const auth = await requireAuth(c);
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-  const blink = createClient({
-    projectId: env.BLINK_PROJECT_ID,
-    secretKey: env.BLINK_SECRET_KEY,
+  const blink = getDB(c.env as any);
+
+  const rows = await blink.db.subscriptions.list({
+    where: { userId: auth.userId },
+    limit: 1,
   });
 
-  const result = await blink.auth.verifyToken(authHeader);
-  if (!result.valid) return c.json({ error: 'Unauthorized' }, 401);
-
- const { data: rows, error } = await blink
-  .from('subscriptions')
-  .select('*')
-  .eq('stripeCustomerId', customerId)
-  .limit(1);
-
-if (error || !rows || rows.length === 0) {
-  console.warn(`No subscription record matched for ${customerId}`);
-  break;
-}
-
-  if (rows.length === 0) {
+  if (!rows || rows.length === 0) {
     return c.json({
       plan: 'free',
       status: 'inactive',

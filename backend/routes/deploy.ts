@@ -4,13 +4,6 @@ import { getDB, generateId, now } from '../lib/db';
 
 const deploy = new Hono();
 
-/**
- * Vercel Deploy Flow:
- * 1. POST /api/deploy/vercel — create a Vercel deployment from files
- * 2. GET  /api/deploy/vercel/:projectId — get deployment status
- * 3. POST /api/deploy/vercel/:projectId/alias — set a custom alias
- */
-
 // POST /api/deploy/vercel — deploy files to Vercel
 deploy.post('/vercel', async (c) => {
   const auth = await requireAuth(c);
@@ -41,19 +34,13 @@ deploy.post('/vercel', async (c) => {
     .replace(/-+/g, '-')
     .slice(0, 52);
 
-  // Check if Vercel project exists, create if not
+  // Check if we already have a Vercel deployment for this project
+  const existing = await blink.db.vercelDeployments.list({
+    where: { projectId, userId: auth.userId },
+    limit: 1,
+  });
+
   let vercelProjectId: string | null = null;
-  const { data: rows, error } = await blink
-  .from('subscriptions')
-  .select('*')
-  .eq('stripeCustomerId', customerId)
-  .limit(1);
-
-if (error || !rows || rows.length === 0) {
-  console.warn(`No subscription record matched for ${customerId}`);
-  break;
-}
-
   if (existing.length > 0 && (existing[0] as any).vercelProjectId) {
     vercelProjectId = (existing[0] as any).vercelProjectId;
   } else {
@@ -74,11 +61,11 @@ if (error || !rows || rows.length === 0) {
       const created = await createRes.json() as any;
       vercelProjectId = created.id;
     } else {
-      // Project might already exist
+      // Project might already exist under this name
       const listRes = await fetch(`https://api.vercel.com/v9/projects/${cleanName}`, { headers: vHeaders });
       if (listRes.ok) {
-        const existing2 = await listRes.json() as any;
-        vercelProjectId = existing2.id;
+        const existingProject = await listRes.json() as any;
+        vercelProjectId = existingProject.id;
       } else {
         const err = await createRes.json() as any;
         return c.json({ error: err.error?.message || 'Failed to create Vercel project' }, 400);
@@ -122,7 +109,6 @@ if (error || !rows || rows.length === 0) {
   const deploymentUrl = `https://${deployment.url}`;
   const ts = now();
 
-  // Save to DB
   const deployData = {
     projectId,
     userId: auth.userId,
@@ -130,7 +116,7 @@ if (error || !rows || rows.length === 0) {
     vercelDeploymentId: deploymentId,
     deploymentUrl,
     status: deployment.readyState || 'BUILDING',
-    vercelAccessToken: vercelToken,
+    // Store token encrypted in production; omit here for brevity
     updatedAt: ts,
   };
 
@@ -144,7 +130,6 @@ if (error || !rows || rows.length === 0) {
     });
   }
 
-  // Save version record
   await blink.db.projectVersions.create({
     id: generateId('ver'),
     projectId,
@@ -181,13 +166,13 @@ deploy.get('/vercel/:projectId', async (c) => {
   if (rows.length === 0) return c.json({ deployment: null });
 
   const dep = rows[0] as any;
-  const { vercelDeploymentId, vercelAccessToken } = dep;
+  const { vercelDeploymentId } = dep;
+  const vercelToken = c.req.header('x-vercel-token');
 
-  // Check live status from Vercel if we have a deployment ID
-  if (vercelDeploymentId && vercelAccessToken) {
+  if (vercelDeploymentId && vercelToken) {
     try {
       const res = await fetch(`https://api.vercel.com/v13/deployments/${vercelDeploymentId}`, {
-        headers: { 'Authorization': `Bearer ${vercelAccessToken}` },
+        headers: { 'Authorization': `Bearer ${vercelToken}` },
       });
       if (res.ok) {
         const live = await res.json() as any;
@@ -202,17 +187,13 @@ deploy.get('/vercel/:projectId', async (c) => {
           if (live.url) dep.deploymentUrl = `https://${live.url}`;
         }
       }
-    } catch { /* ignore, return cached */ }
+    } catch { /* return cached */ }
   }
 
-  // Don't expose token
-  const result = { ...dep };
-  delete result.vercelAccessToken;
-
-  return c.json({ deployment: result });
+  return c.json({ deployment: dep });
 });
 
-// GET /api/deploy/vercel/:projectId/check-status — poll Vercel for live status
+// GET /api/deploy/vercel/:projectId/check-status
 deploy.get('/vercel/:projectId/check-status', async (c) => {
   const auth = await requireAuth(c);
   if (!auth) return c.json({ error: 'Unauthorized' }, 401);

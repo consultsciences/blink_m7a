@@ -34,7 +34,7 @@ export function ChatPanel({ sandbox, isEmbedded = false, initialPrompt = null, o
   const savedMessages = React.useMemo(() => {
     if (!sandboxId) return [];
     try {
-      const saved = localStorage.getItem(`chat_history_${sandboxId}`);
+      const saved = (() => { try { return localStorage.getItem(`chat_history_${sandboxId}`); } catch { return null; } })();
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   }, [sandboxId]);
@@ -48,7 +48,7 @@ export function ChatPanel({ sandbox, isEmbedded = false, initialPrompt = null, o
   // Persist chat
   useEffect(() => {
     if (messages.length > 0 && sandboxId) {
-      localStorage.setItem(`chat_history_${sandboxId}`, JSON.stringify(messages));
+      try { localStorage.setItem(`chat_history_${sandboxId}`, JSON.stringify(messages)); } catch {}
     }
   }, [messages, sandboxId]);
 

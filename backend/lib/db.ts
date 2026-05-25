@@ -1,11 +1,10 @@
-import { createClient } from '@supabase/supabase-js'; // Or your preferred DB adapter/ORM
+import { createClient } from '@blinkdotnew/sdk';
 
 export function getDB(env: Record<string, string>) {
-  // Replace the Blink client hook initialization with your independent persistent storage pool
-  return createClient(
-    env.SUPABASE_URL, 
-    env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  return createClient({
+    projectId: env.BLINK_PROJECT_ID,
+    secretKey: env.BLINK_SECRET_KEY,
+  });
 }
 
 export function generateId(prefix = 'id') {

@@ -68,7 +68,7 @@ export default function App() {
       try {
         const currentUser = await blink.auth.me();
         if (currentUser) {
-          await blink.db.projects.create({
+          await blink.db.table('projects').create({
             userId: currentUser.id,
             name: initialPrompt.slice(0, 40) + (initialPrompt.length > 40 ? '…' : ''),
             prompt: initialPrompt,
@@ -225,7 +225,7 @@ export default function App() {
               <Button size="sm" onClick={() => { setSandbox(null); setSandboxError(null); }}>Retry</Button>
             </div>
           ) : (
-            <EditorLayout sandbox={sandbox} initialPrompt={initialPrompt} />
+            <EditorLayout sandbox={sandbox} initialPrompt={initialPrompt} projectId={sandbox?.id} />
           )}
         </main>
       </div>

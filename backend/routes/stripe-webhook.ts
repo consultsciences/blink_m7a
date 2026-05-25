@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
+import { requireAuth } from '../lib/auth';
 import { getDB, generateId, now } from '../lib/db';
 
 const stripeWebhook = new Hono();
 
 // POST /api/stripe/webhook
-// Stripe sends signed events here. We verify the signature and update subscription state.
 stripeWebhook.post('/', async (c) => {
   const env = c.env as any;
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET || '';
@@ -17,12 +17,8 @@ stripeWebhook.post('/', async (c) => {
 
   const body = await c.req.text();
   const signature = c.req.header('stripe-signature');
+  if (!signature) return c.json({ error: 'Missing stripe-signature header' }, 400);
 
-  if (!signature) {
-    return c.json({ error: 'Missing stripe-signature header' }, 400);
-  }
-
-  // Verify Stripe webhook signature using HMAC
   let event: any;
   try {
     event = await verifyStripeSignature(body, signature, webhookSecret);
@@ -40,19 +36,12 @@ stripeWebhook.post('/', async (c) => {
         const sub = event.data.object;
         const customerId = sub.customer as string;
 
-        // Find user by stripe_customer_id
-       const { data: rows, error } = await blink
-  .from('subscriptions')
-  .select('*')
-  .eq('stripeCustomerId', customerId)
-  .limit(1);
+        const rows = await blink.db.subscriptions.list({
+          where: { stripeCustomerId: customerId },
+          limit: 1,
+        });
 
-if (error || !rows || rows.length === 0) {
-  console.warn(`No subscription record matched for ${customerId}`);
-  break;
-}
-
-        if (rows.length === 0) {
+        if (!rows || rows.length === 0) {
           console.warn(`No subscription found for customer ${customerId}`);
           break;
         }
@@ -73,8 +62,6 @@ if (error || !rows || rows.length === 0) {
           creditsLimit,
           updatedAt: now(),
         });
-
-        console.log(`Updated subscription for user ${existing.userId}: plan=${plan}, status=${sub.status}`);
         break;
       }
 
@@ -86,43 +73,32 @@ if (error || !rows || rows.length === 0) {
         });
 
         if (rows.length > 0) {
-          const existing = rows[0] as any;
-          await blink.db.subscriptions.update(existing.id, {
+          await blink.db.subscriptions.update((rows[0] as any).id, {
             plan: 'free',
             status: 'canceled',
             cancelAtPeriodEnd: 0,
             creditsLimit: 5,
             updatedAt: now(),
           });
-          console.log(`Subscription canceled for user ${existing.userId}`);
         }
         break;
       }
 
       case 'checkout.session.completed': {
         const session = event.data.object;
-        // If this is a subscription checkout, subscription events will handle the rest.
-        // For one-time payments (credits), we handle here.
         if (session.mode === 'payment') {
-          const customerId = session.customer as string;
           const metadata = session.metadata || {};
           const userId = metadata.userId;
           const creditsToAdd = parseInt(metadata.credits || '0');
 
           if (userId && creditsToAdd > 0) {
-            const rows = await blink.db.subscriptions.list({
-              where: { userId },
-              limit: 1,
-            });
-
+            const rows = await blink.db.subscriptions.list({ where: { userId }, limit: 1 });
             if (rows.length > 0) {
               const existing = rows[0] as any;
-              const newLimit = (existing.creditsLimit || 5) + creditsToAdd;
               await blink.db.subscriptions.update(existing.id, {
-                creditsLimit: newLimit,
+                creditsLimit: (existing.creditsLimit || 5) + creditsToAdd,
                 updatedAt: now(),
               });
-              console.log(`Added ${creditsToAdd} credits to user ${userId}`);
             }
           }
         }
@@ -131,12 +107,10 @@ if (error || !rows || rows.length === 0) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        const customerId = invoice.customer as string;
         const rows = await blink.db.subscriptions.list({
-          where: { stripeCustomerId: customerId },
+          where: { stripeCustomerId: invoice.customer as string },
           limit: 1,
         });
-
         if (rows.length > 0) {
           await blink.db.subscriptions.update((rows[0] as any).id, {
             status: 'past_due',
@@ -145,10 +119,6 @@ if (error || !rows || rows.length === 0) {
         }
         break;
       }
-
-      default:
-        // Ignore other event types
-        break;
     }
 
     return c.json({ received: true });
@@ -158,48 +128,31 @@ if (error || !rows || rows.length === 0) {
   }
 });
 
-// POST /api/stripe/create-checkout — create a Stripe checkout session
+// POST /api/stripe/create-checkout
 stripeWebhook.post('/create-checkout', async (c) => {
   const env = c.env as any;
   const stripeSecretKey = env.STRIPE_SECRET_KEY || '';
-
-  if (!stripeSecretKey) {
-    return c.json({ error: 'Stripe not configured. Add STRIPE_SECRET_KEY to project secrets.' }, 503);
-  }
+  if (!stripeSecretKey) return c.json({ error: 'Stripe not configured.' }, 503);
 
   const body = await c.req.json();
   const { userId, email, priceId, planName, successUrl, cancelUrl } = body;
-
-  if (!userId || !priceId || !successUrl) {
-    return c.json({ error: 'Missing required fields' }, 400);
-  }
+  if (!userId || !priceId || !successUrl) return c.json({ error: 'Missing required fields' }, 400);
 
   const blink = getDB(env);
-
-  // Get or create subscription record to get/set stripe customer
   let rows = await blink.db.subscriptions.list({ where: { userId }, limit: 1 });
-  let stripeCustomerId: string | null = null;
+  let stripeCustomerId: string | null = (rows[0] as any)?.stripeCustomerId || null;
 
-  if (rows.length > 0) {
-    stripeCustomerId = (rows[0] as any).stripeCustomerId || null;
-  }
-
-  // Create or retrieve Stripe customer
   if (!stripeCustomerId) {
     const customerRes = await fetch('https://api.stripe.com/v1/customers', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeSecretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Authorization': `Bearer ${stripeSecretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ email: email || '', 'metadata[userId]': userId }),
     });
     const customer = await customerRes.json() as any;
     stripeCustomerId = customer.id;
 
-    // Upsert subscription record
+    const ts = now();
     if (rows.length === 0) {
-      const ts = now();
       await blink.db.subscriptions.create({
         id: generateId('sub'),
         userId,
@@ -212,14 +165,10 @@ stripeWebhook.post('/create-checkout', async (c) => {
         updatedAt: ts,
       });
     } else {
-      await blink.db.subscriptions.update((rows[0] as any).id, {
-        stripeCustomerId,
-        updatedAt: now(),
-      });
+      await blink.db.subscriptions.update((rows[0] as any).id, { stripeCustomerId, updatedAt: ts });
     }
   }
 
-  // Create checkout session
   const params = new URLSearchParams({
     'customer': stripeCustomerId!,
     'line_items[0][price]': priceId,
@@ -234,96 +183,63 @@ stripeWebhook.post('/create-checkout', async (c) => {
 
   const sessionRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${stripeSecretKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Authorization': `Bearer ${stripeSecretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params,
   });
 
   const session = await sessionRes.json() as any;
-  if (session.error) {
-    return c.json({ error: session.error.message }, 400);
-  }
-
+  if (session.error) return c.json({ error: session.error.message }, 400);
   return c.json({ url: session.url, sessionId: session.id });
 });
 
-// GET /api/stripe/subscription — get current user subscription
+// GET /api/stripe/subscription
 stripeWebhook.get('/subscription', async (c) => {
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader) return c.json({ error: 'Unauthorized' }, 401);
+  const auth = await requireAuth(c);
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-  // Simple parse of Bearer token
-  const token = authHeader.replace('Bearer ', '');
-  // Decode userId from JWT (base64 middle part) — not verifying here, backend does verification
   const blink = getDB(c.env as any);
-
-  // Verify via Blink auth
-  const blinkClient = blink;
-  const result = await (blinkClient as any).auth.verifyToken(authHeader);
-  if (!result.valid) return c.json({ error: 'Unauthorized' }, 401);
-
-  const userId = result.userId;
-  const rows = await blink.db.subscriptions.list({ where: { userId }, limit: 1 });
+  const rows = await blink.db.subscriptions.list({ where: { userId: auth.userId }, limit: 1 });
 
   if (rows.length === 0) {
-    return c.json({
-      subscription: {
-        plan: 'free',
-        status: 'inactive',
-        creditsUsed: 0,
-        creditsLimit: 5,
-      }
-    });
+    return c.json({ subscription: { plan: 'free', status: 'inactive', creditsUsed: 0, creditsLimit: 5 } });
   }
 
-  return c.json({ subscription: rows[0] });
+  const sub = { ...(rows[0] as any) };
+  delete sub.stripeCustomerId; // Don't expose billing identifiers
+  return c.json({ subscription: sub });
 });
 
-// POST /api/stripe/portal — create Stripe customer portal session
+// POST /api/stripe/portal
 stripeWebhook.post('/portal', async (c) => {
   const env = c.env as any;
   const stripeSecretKey = env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) return c.json({ error: 'Stripe not configured' }, 500);
 
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader) return c.json({ error: 'Unauthorized' }, 401);
-
-  const blink = getDB(env);
-  const result = await (blink as any).auth.verifyToken(authHeader);
-  if (!result.valid) return c.json({ error: 'Unauthorized' }, 401);
+  const auth = await requireAuth(c);
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
   const body = await c.req.json();
   const { returnUrl } = body;
 
-  const rows = await blink.db.subscriptions.list({ where: { userId: result.userId }, limit: 1 });
+  const blink = getDB(env);
+  const rows = await blink.db.subscriptions.list({ where: { userId: auth.userId }, limit: 1 });
   if (rows.length === 0 || !(rows[0] as any).stripeCustomerId) {
     return c.json({ error: 'No billing account found' }, 404);
   }
 
   const stripeCustomerId = (rows[0] as any).stripeCustomerId;
-
   const portalRes = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${stripeSecretKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      'customer': stripeCustomerId,
-      'return_url': returnUrl || 'https://m7a.blink.new',
-    }),
+    headers: { 'Authorization': `Bearer ${stripeSecretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ 'customer': stripeCustomerId, 'return_url': returnUrl || 'https://m7a.blink.new' }),
   });
 
   const portal = await portalRes.json() as any;
   if (portal.error) return c.json({ error: portal.error.message }, 400);
-
   return c.json({ url: portal.url });
 });
 
 // --- Helpers ---
-
 function getPlanFromPriceId(priceId: string | undefined, env: any): string {
   if (!priceId) return 'free';
   if (priceId === env.STRIPE_PRICE_PRO) return 'pro';
@@ -332,12 +248,7 @@ function getPlanFromPriceId(priceId: string | undefined, env: any): string {
 }
 
 function getCreditsForPlan(plan: string): number {
-  const map: Record<string, number> = {
-    free: 5,
-    starter: 50,
-    pro: 500,
-    team: 2000,
-  };
+  const map: Record<string, number> = { free: 5, starter: 50, pro: 500, team: 2000 };
   return map[plan] ?? 5;
 }
 
@@ -350,32 +261,17 @@ async function verifyStripeSignature(payload: string, signature: string, secret:
 
   const timestamp = parts['t'];
   const expectedSig = parts['v1'];
-
   if (!timestamp || !expectedSig) throw new Error('Invalid signature format');
 
-  // Check timestamp tolerance (5 minutes)
-  const tolerance = 300;
-  if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > tolerance) {
-    throw new Error('Timestamp too old');
-  }
+  if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > 300) throw new Error('Timestamp too old');
 
   const signedPayload = `${timestamp}.${payload}`;
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(signedPayload));
-  const computedSig = Array.from(new Uint8Array(sig))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  const computedSig = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 
   if (computedSig !== expectedSig) throw new Error('Signature mismatch');
-
   return JSON.parse(payload);
 }
 

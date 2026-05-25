@@ -1,8 +1,8 @@
 import { Agent, sandboxTools, webSearch } from '@blinkdotnew/sdk'
 
 // Filter sandbox tools for read-only access
-const readOnlyTools = sandboxTools.filter(tool =>
-  ['read_file', 'list_dir', 'grep', 'glob_file_search', 'get_host'].includes(tool.name)
+const readOnlyTools = sandboxTools.filter((tool: any) =>
+  ['read_file', 'list_dir', 'grep', 'glob_file_search', 'get_host'].includes(tool.name as string)
 )
 
 export const askAgent = new Agent({
